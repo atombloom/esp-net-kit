@@ -1,0 +1,12 @@
+dependencies:
+  idf: '>=5.3'
+description: ESP32 ML307 / EC801E / NT26K Cat.1 Cellular Module, building from https://github.com/78/esp-ml307 v3.3.7
+files:
+  exclude:
+  - .git
+  - dist
+license: MIT
+repository: https://github.com/atombloom/esp-net-kit.git 
+url: https://github.com/atombloom/esp-net-kit.git
+version: 1.0.0
+
