@@ -9,6 +9,7 @@ public:
     virtual ~Mqtt() {}
 
     void SetKeepAlive(int keep_alive_seconds) { keep_alive_seconds_ = keep_alive_seconds; }
+    void SetCaCertificate(const char* certificate) { ca_certificate_ = certificate ? certificate : ""; }
     virtual bool Connect(const std::string broker_address, int broker_port, const std::string client_id, const std::string username, const std::string password) = 0;
     virtual void Disconnect() = 0;
     virtual bool Publish(const std::string topic, const std::string payload, int qos = 0) = 0;
@@ -23,6 +24,7 @@ public:
 
 protected:
     int keep_alive_seconds_ = 120;
+    std::string ca_certificate_;
     std::function<void(const std::string& topic, const std::string& payload)> on_message_callback_;
     std::function<void()> on_connected_callback_;
     std::function<void()> on_disconnected_callback_;

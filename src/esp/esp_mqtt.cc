@@ -28,12 +28,17 @@ bool EspMqtt::Connect(const std::string broker_address, int broker_port, const s
     mqtt_config.broker.address.port = broker_port;
     if (broker_port == 8883) {
         mqtt_config.broker.address.transport = MQTT_TRANSPORT_OVER_SSL;
+        if (!ca_certificate_.empty()) {
+            mqtt_config.broker.verification.certificate = ca_certificate_.c_str();
 #if CONFIG_SKIP_MQTT_SSL_CERT_VERIFY
+        } else {
         ESP_LOGW(TAG, "MQTT SSL: skip certificate verification (insecure, dev only)");
         mqtt_config.broker.verification.crt_bundle_attach = nullptr;
 #else
+        } else {
         mqtt_config.broker.verification.crt_bundle_attach = esp_crt_bundle_attach;
 #endif
+        }
 
     } else {
         mqtt_config.broker.address.transport = MQTT_TRANSPORT_OVER_TCP;
@@ -44,10 +49,27 @@ bool EspMqtt::Connect(const std::string broker_address, int broker_port, const s
     mqtt_config.session.keepalive = keep_alive_seconds_;
 
     mqtt_client_handle_ = esp_mqtt_client_init(&mqtt_config);
-    esp_mqtt_client_register_event(mqtt_client_handle_, MQTT_EVENT_ANY, [](void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+    if (mqtt_client_handle_ == nullptr) {
+        ESP_LOGE(TAG, "Failed to create MQTT client");
+        return false;
+    }
+    xEventGroupClearBits(event_group_handle_, MQTT_CONNECTED_EVENT | MQTT_DISCONNECTED_EVENT | MQTT_ERROR_EVENT);
+    const esp_err_t register_error = esp_mqtt_client_register_event(
+        mqtt_client_handle_, MQTT_EVENT_ANY, [](void *handler_args, esp_event_base_t base,
+                                                int32_t event_id, void *event_data) {
         ((EspMqtt*)handler_args)->MqttEventCallback(base, event_id, event_data);
     }, this);
-    esp_mqtt_client_start(mqtt_client_handle_);
+    if (register_error != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register MQTT event handler: %s", esp_err_to_name(register_error));
+        Disconnect();
+        return false;
+    }
+    const esp_err_t start_error = esp_mqtt_client_start(mqtt_client_handle_);
+    if (start_error != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start MQTT client: %s", esp_err_to_name(start_error));
+        Disconnect();
+        return false;
+    }
 
     auto bits = xEventGroupWaitBits(event_group_handle_, MQTT_CONNECTED_EVENT | MQTT_DISCONNECTED_EVENT | MQTT_ERROR_EVENT,
         pdTRUE, pdFALSE, pdMS_TO_TICKS(MQTT_CONNECT_TIMEOUT_MS));
@@ -96,9 +118,11 @@ void EspMqtt::MqttEventCallback(esp_event_base_t base, int32_t event_id, void *e
     case MQTT_EVENT_SUBSCRIBED:
         break;
     case MQTT_EVENT_ERROR: {
-        last_error_ = event->error_handle->esp_tls_last_esp_err;
+        last_error_ = event == nullptr || event->error_handle == nullptr
+                          ? ESP_FAIL
+                          : event->error_handle->esp_tls_last_esp_err;
         xEventGroupSetBits(event_group_handle_, MQTT_ERROR_EVENT);
-        const char* error_name = esp_err_to_name(event->error_handle->esp_tls_last_esp_err);
+        const char* error_name = esp_err_to_name(last_error_);
         ESP_LOGI(TAG, "MQTT error occurred: %s", error_name);
         if (on_error_callback_) {
             on_error_callback_(error_name ? error_name : "MQTT error");
