@@ -117,6 +117,11 @@ void EspMqtt::MqttEventCallback(esp_event_base_t base, int32_t event_id, void *e
         break;
     case MQTT_EVENT_SUBSCRIBED:
         break;
+    case MQTT_EVENT_PUBLISHED:
+        if (on_published_callback_) {
+            on_published_callback_(event->msg_id);
+        }
+        break;
     case MQTT_EVENT_ERROR: {
         last_error_ = event == nullptr || event->error_handle == nullptr
                           ? ESP_FAIL
@@ -146,11 +151,15 @@ void EspMqtt::Disconnect() {
 }
 
 bool EspMqtt::Publish(const std::string topic, const std::string payload, int qos) {
-    if (!connected_) {
-        return false;
+    return PublishWithId(topic, payload, qos) >= 0;
+}
+
+int EspMqtt::PublishWithId(const std::string& topic, const std::string& payload, int qos) {
+    if (!connected_ || mqtt_client_handle_ == nullptr) {
+        return -1;
     }
-    int msg_id = esp_mqtt_client_publish(mqtt_client_handle_, topic.c_str(), payload.data(), payload.size(), qos, 0);
-    return (qos == 0) ? (msg_id == 0) : (msg_id > 0);
+    return esp_mqtt_client_publish(mqtt_client_handle_, topic.c_str(), payload.data(), payload.size(),
+                                   qos, 0);
 }
 
 bool EspMqtt::Subscribe(const std::string topic, int qos) {

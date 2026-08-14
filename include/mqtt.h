@@ -13,6 +13,11 @@ public:
     virtual bool Connect(const std::string broker_address, int broker_port, const std::string client_id, const std::string username, const std::string password) = 0;
     virtual void Disconnect() = 0;
     virtual bool Publish(const std::string topic, const std::string payload, int qos = 0) = 0;
+    // Returns a non-negative message ID when the publish request is accepted, or -1 on failure.
+    // Backends that do not expose message IDs return 0 on success.
+    virtual int PublishWithId(const std::string& topic, const std::string& payload, int qos = 0) {
+        return Publish(topic, payload, qos) ? 0 : -1;
+    }
     virtual bool Subscribe(const std::string topic, int qos = 0) = 0;
     virtual bool Unsubscribe(const std::string topic) = 0;
     virtual bool IsConnected() = 0;
@@ -20,6 +25,7 @@ public:
     virtual void OnConnected(std::function<void()> callback) { on_connected_callback_ = std::move(callback); }
     virtual void OnDisconnected(std::function<void()> callback) { on_disconnected_callback_ = std::move(callback); }
     virtual void OnMessage(std::function<void(const std::string& topic, const std::string& payload)> callback) { on_message_callback_ = std::move(callback); }
+    virtual void OnPublished(std::function<void(int message_id)> callback) { on_published_callback_ = std::move(callback); }
     virtual void OnError(std::function<void(const std::string& error)> callback) { on_error_callback_ = std::move(callback); }
 
 protected:
@@ -28,6 +34,7 @@ protected:
     std::function<void(const std::string& topic, const std::string& payload)> on_message_callback_;
     std::function<void()> on_connected_callback_;
     std::function<void()> on_disconnected_callback_;
+    std::function<void(int message_id)> on_published_callback_;
     std::function<void(const std::string& error)> on_error_callback_;
 };
 
