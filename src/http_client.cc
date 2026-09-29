@@ -36,6 +36,10 @@ void HttpClient::SetContent(std::string&& content) {
     content_ = std::move(content);
 }
 
+void HttpClient::SetSkipCertVerify(bool skip) {
+    skip_cert_verify_ = skip;
+}
+
 bool HttpClient::ParseUrl(const std::string& url) {
     // 解析 URL: protocol://host:port/path
     size_t protocol_end = url.find("://");
@@ -183,6 +187,7 @@ bool HttpClient::Open(const std::string& method, const std::string& url) {
     // 建立 TCP 连接
     if (protocol_ == "https") {
         tcp_ = network_->CreateSsl(connect_id_);
+        tcp_->SetSkipCertVerify(skip_cert_verify_);  // 必须在 Connect 前设置
     } else {
         tcp_ = network_->CreateTcp(connect_id_);
     }

@@ -18,11 +18,13 @@ public:
     bool Connect(const std::string& host, int port) override;
     void Disconnect() override;
     int Send(const std::string& data) override;
+    void SetSkipCertVerify(bool skip) override { skip_cert_verify_ = skip; }
 
 private:
     esp_tls_t* tls_client_ = nullptr;
     EventGroupHandle_t event_group_ = nullptr;
     TaskHandle_t receive_task_handle_ = nullptr;
+    bool skip_cert_verify_ = false;  // 跳过服务端证书校验（需在 Connect 前设置）
 
     void ReceiveTask();
 };

@@ -15,6 +15,9 @@ public:
     // 设置 HTTP 请求头
     virtual void SetHeader(const std::string& key, const std::string& value) = 0;
 
+    // 是否跳过 HTTPS 服务端证书校验（默认否，需在 Open 前设置）
+    virtual void SetSkipCertVerify(bool /*skip*/) {}
+
     // 设置 HTTP Content
     virtual void SetContent(std::string&& content) = 0;
 

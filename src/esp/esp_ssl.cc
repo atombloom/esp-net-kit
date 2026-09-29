@@ -1,10 +1,21 @@
 #include "esp_ssl.h"
 #include <esp_log.h>
 #include <esp_crt_bundle.h>
+#include <mbedtls/ssl.h>
 #include <cstring>
 #include <unistd.h>
 
 static const char *TAG = "EspSsl";
+
+namespace {
+/** 跳过服务端证书校验：不加载 CA bundle，握手时不验证证书链。 */
+esp_err_t AttachNoVerify(void* conf) {
+    if (conf != nullptr) {
+        mbedtls_ssl_conf_authmode(static_cast<mbedtls_ssl_config*>(conf), MBEDTLS_SSL_VERIFY_NONE);
+    }
+    return ESP_OK;
+}
+}  // namespace
 
 EspSsl::EspSsl() {
     event_group_ = xEventGroupCreate();
@@ -32,7 +43,13 @@ bool EspSsl::Connect(const std::string& host, int port) {
     }
 
     esp_tls_cfg_t cfg = {};
-    cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    if (skip_cert_verify_) {
+        cfg.crt_bundle_attach = AttachNoVerify;
+        cfg.skip_common_name = true;
+        ESP_LOGI(TAG, "Skip server certificate verification for %s:%d", host.c_str(), port);
+    } else {
+        cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    }
 
     int ret = esp_tls_conn_new_sync(host.c_str(), host.length(), port, &cfg, tls_client_);
     if (ret != 1) {

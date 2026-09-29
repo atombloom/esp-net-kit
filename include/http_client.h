@@ -31,6 +31,7 @@ public:
     void SetTimeout(int timeout_ms) override;
     void SetHeader(const std::string& key, const std::string& value) override;
     void SetContent(std::string&& content) override;
+    void SetSkipCertVerify(bool skip) override;
     bool Open(const std::string& method, const std::string& url) override;
     void Close() override;
     int Read(char* buffer, size_t buffer_size) override;
@@ -94,6 +95,7 @@ private:
     
     int status_code_ = -1;
     int timeout_ms_ = 30000;
+    bool skip_cert_verify_ = false;
     std::string rx_buffer_;
     std::map<std::string, HeaderEntry> headers_;  // key为小写，用于快速查找
     std::string url_;

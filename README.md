@@ -20,6 +20,7 @@
 - TCP / SSL TCP
 - UDP
 - WebSocket
+- 可选跳过 TLS 证书校验（逐连接）
 - 自动模组检测和初始化
 
 ## 支持的模组
@@ -101,6 +102,30 @@ void TestHttp(std::unique_ptr<AtModem>& modem) {
     // unique_ptr 会自动释放内存，无需手动 delete
 }
 ```
+
+#### 跳过 TLS 证书校验（可选）
+
+HTTPS 连接默认通过 CA 证书包校验服务端证书。对于速度敏感、数据非敏感的内部接口，可在 `Open()` 前关闭校验：
+
+```cpp
+void TestHttpSkipVerify(std::unique_ptr<AtModem>& modem) {
+    auto http = modem->CreateHttp(0);
+
+    // 需在 Open() 之前设置；默认 false（校验）
+    http->SetSkipCertVerify(true);
+    http->SetTimeout(6000);
+
+    if (http->Open("GET", "https://example.com/api/fast")) {
+        ESP_LOGI(TAG, "响应内容: %s", http->ReadAll().c_str());
+        http->Close();
+    }
+}
+```
+
+- 仅对当前连接生效，其他连接仍按默认校验
+- 仅 HTTPS 生效，HTTP 连接忽略该设置
+- 内部实现：TLS 握手时不再加载 CA bundle、不校验证书链（`MBEDTLS_SSL_VERIFY_NONE`），省去证书解析与验签开销
+- `CreateSsl()` 返回的 TCP 连接也支持 `SetSkipCertVerify()`，同样需在 `Connect()` 前设置
 
 ### MQTT 客户端
 

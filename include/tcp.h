@@ -12,6 +12,9 @@ public:
     virtual void Disconnect() = 0;
     virtual int Send(const std::string& data) = 0;
 
+    // 是否跳过服务端证书校验（仅 TLS 连接有效，需在 Connect 前设置；默认校验）
+    virtual void SetSkipCertVerify(bool /*skip*/) {}
+
     virtual void OnStream(std::function<void(const std::string& data)> callback) {
         stream_callback_ = callback;
     }
